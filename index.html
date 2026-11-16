@@ -17,11 +17,14 @@
   --amber:#ffb347;
   --danger:#ff5a5a;
   --crystal:#5ff0ff;
+  --loot:#6dff8a;
   --panel:rgba(8,12,30,.78);
   --display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:dark;
 }
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--void);color:var(--ink);overflow:hidden;font-family:var(--display)}
 #stage{position:fixed;inset:0}
 #stage canvas{display:block;width:100%;height:100%;cursor:none;touch-action:none}
@@ -78,6 +81,11 @@ h2{margin:0;font:700 clamp(30px,7vw,44px)/1 var(--display);letter-spacing:.04em;
 .controls dt{font:600 11px/1.6 var(--display);letter-spacing:.18em;text-transform:uppercase;color:var(--hud)}
 .controls dd{margin:0;color:var(--ink)}
 .controls .cy{color:var(--crystal)}
+.controls .ch{color:var(--loot)}
+.wpn{display:flex;align-items:center;gap:8px;font:700 13px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--amber);transition:color .2s}
+.pips{display:flex;gap:4px}
+.pips i{width:14px;height:5px;background:rgba(159,212,255,.18);clip-path:polygon(2px 0,100% 0,calc(100% - 2px) 100%,0 100%)}
+.pips i.on{background:currentColor}
 kbd{font:500 12px/1 var(--mono);border:1px solid rgba(159,212,255,.35);padding:2px 5px;color:var(--ink)}
 .btns{display:flex;flex-wrap:wrap;gap:10px}
 .btn{font:700 15px/1 var(--display);letter-spacing:.2em;text-transform:uppercase;padding:14px 22px;border:0;cursor:pointer;
@@ -115,6 +123,7 @@ kbd{font:500 12px/1 var(--mono);border:1px solid rgba(159,212,255,.35);padding:2
     <div class="hull">
       <div class="row"><span class="lbl">Hull integrity</span><span class="small" id="hullnum">100%</span></div>
       <div class="bar" id="hullwrap"><i id="hullbar"></i></div>
+      <div class="row"><span class="lbl">Cannons</span><span class="wpn" id="wpnwrap"><span id="wpn">Standard</span><span class="pips" id="pips"><i></i><i></i><i></i></span></span></div>
     </div>
     <div class="stat right">
       <span class="lbl">Wave</span>
@@ -140,6 +149,7 @@ kbd{font:500 12px/1 var(--mono);border:1px solid rgba(159,212,255,.35);padding:2
       <dt>Stop</dt><dd>Press <kbd>Esc</kbd> or End run. In VR, squeeze the grip.</dd>
       <dt>Big rocks</dt><dd>Take 4 hits and split into shards</dd>
       <dt>Crystals</dt><dd class="cy">Shoot the cyan ones to repair your hull</dd>
+      <dt>Supply crates</dt><dd class="ch">Shoot the glowing green crates for stronger cannons. Getting hit takes the upgrade away.</dd>
       <dt>VR</dt><dd>Each controller holds a cannon. Pull the trigger to fire.</dd>
     </dl>
     <div class="btns">
@@ -411,6 +421,7 @@ function drawPanel(msg){
   x.font='500 76px "IBM Plex Mono",monospace';x.fillStyle='#e4ecff';x.fillText(state.score,40,150);
   x.textAlign='right';x.fillText(state.wave,w-40,150);x.textAlign='left';
   if(state.mult>1){x.font='700 40px "Chakra Petch",sans-serif';x.fillStyle='#ffb347';x.fillText('×'+state.mult,40,205)}
+  {const W=WEAPONS[state.weapon];x.font='700 36px "Chakra Petch",sans-serif';x.fillStyle=W.css;x.textAlign='right';x.fillText('CANNONS: '+W.name.toUpperCase()+'  '+'■'.repeat(state.weapon)+'□'.repeat(3-state.weapon),w-40,205);x.textAlign='left'}
   x.fillStyle='rgba(159,212,255,.15)';x.fillRect(40,240,w-80,26);
   x.fillStyle=state.hull<30?'#ff5a5a':'#9fd4ff';x.fillRect(40,240,(w-80)*Math.max(0,state.hull)/100,26);
   if(msg){x.font='700 44px "Chakra Petch",sans-serif';x.fillStyle='#ffb347';x.textAlign='center';x.fillText(msg,w/2,340);x.textAlign='left'}
@@ -438,17 +449,19 @@ function noise(dur,vol,freq,pan){
   g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);out(g,pan);s.start(t,Math.random()*.4);s.stop(t+dur);
 }
 const sfx={
-  shoot:s=>{tone('sawtooth',1400,240,.1,.045,s*.45);tone('square',520,80,.07,.02,s*.45)},
+  shoot:s=>{const k=1+state.weapon*.18;tone('sawtooth',1400*k,240*k,.1,.045,s*.45);tone('square',520/k,80,.07+state.weapon*.015,.02+state.weapon*.006,s*.45)},
   hit:()=>noise(.07,.12,4000),
   boom:sz=>{noise(.45+sz*.12,.28+sz*.05,1600);tone('sine',110,32,.45,.22)},
   hurt:()=>{tone('sawtooth',170,38,.55,.2);noise(.7,.45,900)},
   pickup:()=>{tone('triangle',660,1320,.18,.1);setTimeout(()=>tone('triangle',990,1980,.2,.08),90)},
-  wave:()=>{tone('square',330,330,.12,.05);setTimeout(()=>tone('square',495,495,.18,.05),130)}
+  wave:()=>{tone('square',330,330,.12,.05);setTimeout(()=>tone('square',495,495,.18,.05),130)},
+  power:()=>{[392,523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone('square',f,f*1.01,.16,.06),i*70));noise(.3,.12,6000)},
+  lost:()=>{[660,494,370,262].forEach((f,i)=>setTimeout(()=>tone('sawtooth',f,f*.9,.14,.06),i*80))}
 };
 
 /* ---------- game state ---------- */
 let best=0;try{best=+localStorage.getItem('hullbreach-best')||+localStorage.getItem('rockfall-best')||0}catch(e){}
-const state={mode:'title',score:0,hull:100,wave:1,kills:0,waveKills:0,spawnT:1,streak:0,streakT:0,mult:1,overAt:0};
+const state={mode:'title',score:0,hull:100,wave:1,kills:0,waveKills:0,spawnT:1,streak:0,streakT:0,mult:1,overAt:0,weapon:0,chestT:15};
 const rocks=[],bolts=[],fx=[];
 let inXR=false,firing=false,fireT=0,turn=0,shake=0,hudDirty=true;
 let viewYaw=0,viewPitch=0,ptrInside=false,ptrDown=false,ptrType='mouse',keyLookT=0;
@@ -476,6 +489,33 @@ function spawnIncoming(attract){
 }
 function removeRock(rk){const i=rocks.indexOf(rk);if(i>=0)rocks.splice(i,1);scene.remove(rk.mesh)}
 
+/* ---------- supply crates ---------- */
+const chestMetal=new THREE.MeshStandardMaterial({color:0x39404f,metalness:.65,roughness:.35});
+const chestLid=new THREE.MeshStandardMaterial({color:0x4c5568,metalness:.6,roughness:.4});
+const chestTrim=new THREE.MeshStandardMaterial({color:0xb8892f,metalness:.8,roughness:.3});
+const chestGlow=new THREE.MeshBasicMaterial({color:0x6dff8a});
+const chestHaloTex=radial([[0,'rgba(109,255,138,.9)'],[.35,'rgba(109,255,138,.25)'],[1,'rgba(109,255,138,0)']]);
+function makeChest(){
+  const g=new THREE.Group(),b=(w,h,d,m,x,y,z)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);g.add(o);return o};
+  b(1.6,.78,1,chestMetal,0,-.12,0);                 /* body */
+  b(1.66,.34,1.06,chestLid,0,.45,0);                /* lid */
+  b(1.72,.06,1.12,chestGlow,0,.27,0);               /* glowing seam */
+  b(1.2,.05,.08,chestGlow,0,.63,.25);b(1.2,.05,.08,chestGlow,0,.63,-.25); /* lid stripes */
+  [-1,1].forEach(sx=>[-1,1].forEach(sz=>b(.14,1.16,.14,chestTrim,sx*.8,.05,sz*.5))); /* corner posts */
+  [-1,1].forEach(sz=>{b(.42,.42,.03,chestTrim,0,-.12,sz*.51);b(.24,.24,.04,chestGlow,0,-.12,sz*.52)}); /* emblems */
+  [-1,1].forEach(sx=>b(.03,.3,.5,chestGlow,sx*.81,-.12,0)); /* side vents */
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:chestHaloTex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.7}));
+  halo.scale.setScalar(3.4);g.add(halo);g.halo=halo;
+  return g;
+}
+function spawnChest(){
+  const mesh=makeChest(),r=1.5,side=Math.random()<.5?-1:1;
+  const pos=new THREE.Vector3(rnd(-35,35),EYE.y+rnd(-4,18),-240);
+  const tgt=new THREE.Vector3(side*rnd(6,11),EYE.y+rnd(-1.5,4),0);
+  mesh.position.copy(pos);mesh.scale.setScalar(r);mesh.rotation.set(rnd(-.3,.3),rnd(0,6),rnd(-.3,.3));scene.add(mesh);
+  rocks.push({mesh,kind:'chest',r,hp:1,pulse:0,halo:mesh.halo,vel:tgt.sub(pos).normalize().multiplyScalar(13+state.wave*.8),spin:new THREE.Vector3(rnd(-.2,.2),rnd(.6,1.1)*side,rnd(-.2,.2))});
+}
+
 /* ---------- effects ---------- */
 function sparks(at,color,count,size,speed,inherit){
   const p=new Float32Array(count*3),vel=[];
@@ -486,6 +526,12 @@ function sparks(at,color,count,size,speed,inherit){
 }
 function explode(rk){
   const at=rk.mesh.position,s=rk.r,crystal=rk.kind==='crystal';
+  if(rk.kind==='chest'){
+    sparks(at,0x6dff8a,70,.9,14,null);sparks(at,0xffd27a,40,.6,9,null);sparks(at,0xffffff,20,1.4,4,null);
+    const f=new THREE.Mesh(sphereGeo,new THREE.MeshBasicMaterial({color:0xb8ffc8,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+    f.position.copy(at);f.scale.setScalar(2);scene.add(f);fx.push({type:'flash',obj:f,life:0,max:.45,r:2.2});
+    sfx.boom(.6);return;
+  }
   sparks(at,crystal?0x7ff6ff:0xffb060,Math.round(30+s*14),s*.55,s*7,rk.vel);
   sparks(at,crystal?0xffffff:0xff5a20,Math.round(12+s*6),s*.9,s*3,rk.vel);
   const f=new THREE.Mesh(sphereGeo,new THREE.MeshBasicMaterial({color:crystal?0xa8fbff:0xffd9a0,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
@@ -514,11 +560,31 @@ const boltMat=new THREE.MeshBasicMaterial({color:0xffc070,transparent:true,opaci
 const boltCoreGeo=new THREE.CylinderGeometry(.075,.075,1.4,6);boltCoreGeo.rotateX(Math.PI/2);
 const boltHaloMat=new THREE.MeshBasicMaterial({color:0xff7a1a,transparent:true,opacity:.35,blending:THREE.AdditiveBlending,depthWrite:false});
 const BOLT_SPEED=260;
+/* Cannon upgrades. A crate raises the level by one (max 3); any hit drops it back to Standard. */
+const WEAPONS=[
+  {name:'Standard',col:0xffc070,halo:0xff7a1a,glow:0xff8a1f,css:'#ffb347',dmg:1,rate:.085,vr:.13,spread:[0],size:1},
+  {name:'Rapid',col:0xc8ecff,halo:0x3a8cff,glow:0x3a8cff,css:'#7fbfff',dmg:2,rate:.055,vr:.085,spread:[0],size:1.25},
+  {name:'Spread',col:0xffc8f4,halo:0xff3fd0,glow:0xff3fd0,css:'#ff6fe0',dmg:2,rate:.07,vr:.1,spread:[-3.5,0,3.5],size:1.35},
+  {name:'Nova',col:0xffffff,halo:0x9b5cff,glow:0x9b5cff,css:'#c39bff',dmg:3,rate:.06,vr:.09,spread:[-7,-3.5,0,3.5,7],size:1.7}
+];
+function applyWeapon(){
+  const W=WEAPONS[state.weapon];
+  boltMat.color.setHex(W.col);boltHaloMat.color.setHex(W.halo);
+  gunGlow.color.setHex(W.halo);gunGlow.emissive.setHex(W.glow);gunGlow.emissiveIntensity=1+state.weapon*.4;
+  guns.forEach(g=>{g.light.color.setHex(W.halo);g.flashMesh.material.color.setHex(W.col)});
+  hudDirty=true;
+}
+const qSpread=new THREE.Quaternion(),yAxis=new THREE.Vector3(0,1,0),qGun=new THREE.Quaternion();
 function shoot(g){
-  g.updateMatrixWorld(true);g.muzzle.getWorldPosition(v1);g.getWorldDirection(v2);
-  const m=new THREE.Mesh(boltGeo,boltMat);m.add(new THREE.Mesh(boltCoreGeo,boltHaloMat));
-  m.position.copy(v1).addScaledVector(v2,1.1);g.getWorldQuaternion(m.quaternion);scene.add(m);
-  bolts.push({m,dir:v2.clone(),life:1.1});
+  const W=WEAPONS[state.weapon];
+  g.updateMatrixWorld(true);g.muzzle.getWorldPosition(v1);g.getWorldQuaternion(qGun);
+  for(const deg of W.spread){
+    const m=new THREE.Mesh(boltGeo,boltMat);m.add(new THREE.Mesh(boltCoreGeo,boltHaloMat));
+    qSpread.setFromAxisAngle(yAxis,THREE.MathUtils.degToRad(deg));m.quaternion.copy(qGun).multiply(qSpread);
+    const dir=new THREE.Vector3(0,0,1).applyQuaternion(m.quaternion);
+    m.scale.set(W.size,W.size,1);m.position.copy(v1).addScaledVector(dir,1.1);scene.add(m);
+    bolts.push({m,dir,life:1.1,dmg:W.dmg});
+  }
   g.recoil=1;g.flash=1;sfx.shoot(g.side);
   if(inXR&&g.src&&g.src.gamepad&&g.src.gamepad.hapticActuators&&g.src.gamepad.hapticActuators[0]){try{g.src.gamepad.hapticActuators[0].pulse(.35,25)}catch(e){}}
 }
@@ -532,6 +598,13 @@ function destroyRock(rk){
   removeRock(rk);explode(rk);
   if(state.mode!=='play')return;
   if(rk.kind==='crystal'){state.hull=Math.min(100,state.hull+15);addScore(50);sfx.pickup();return}
+  if(rk.kind==='chest'){
+    sfx.power();
+    if(state.weapon<3){state.weapon++;applyWeapon();addScore(100);showBanner(WEAPONS[state.weapon].name+' cannons')}
+    else{addScore(250);showBanner('Max power +250')}
+    guns.forEach(g=>{if(g.src&&g.src.gamepad&&g.src.gamepad.hapticActuators&&g.src.gamepad.hapticActuators[0]){try{g.src.gamepad.hapticActuators[0].pulse(.8,180)}catch(e){}}});
+    return;
+  }
   addScore(rk.kind==='big'?25:10);state.kills++;state.waveKills++;
   if(rk.kind==='big')for(let k=0;k<3;k++){
     const v=rk.vel.clone().multiplyScalar(.85).add(new THREE.Vector3(rnd(-1,1),rnd(-1,1),rnd(-.4,.4)).multiplyScalar(9));
@@ -539,14 +612,15 @@ function destroyRock(rk){
   }
   if(state.waveKills>=10+state.wave*4){state.wave++;state.waveKills=0;hudDirty=true;showBanner('Wave '+state.wave);sfx.wave()}
 }
-function damageRock(rk,at){
-  rk.hp--;rk.pulse=1;sparks(at,0xffd090,10,.35,6,rk.vel);sfx.hit();
+function damageRock(rk,at,dmg){
+  rk.hp-=dmg||1;rk.pulse=1;sparks(at,0xffd090,10,.35,6,rk.vel);sfx.hit();
   if(rk.hp<=0)destroyRock(rk);
 }
 function hitPlayer(rk){
   removeRock(rk);explode(rk);
   state.hull-=rk.kind==='big'?34:rk.kind==='shard'?14:20;state.streak=0;state.mult=1;hudDirty=true;
   shake=reduceMotion?0:.9;sfx.hurt();
+  if(state.weapon>0){state.weapon=0;applyWeapon();setTimeout(sfx.lost,250);if(state.hull>0)showBanner('Upgrade lost')}
   const h=$('hurt');h.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>h.classList.remove('on')));
   if(state.hull<=0){state.hull=0;gameOver()}
 }
@@ -555,7 +629,7 @@ function hitPlayer(rk){
 function clearField(){rocks.slice().forEach(removeRock);bolts.forEach(b=>scene.remove(b.m));bolts.length=0}
 function startGame(){
   initAudio();clearField();
-  Object.assign(state,{mode:'play',score:0,hull:100,wave:1,kills:0,waveKills:0,spawnT:.8,streak:0,streakT:0,mult:1});
+  Object.assign(state,{mode:'play',score:0,hull:100,wave:1,kills:0,waveKills:0,spawnT:.8,streak:0,streakT:0,mult:1,weapon:0,chestT:rnd(12,18)});applyWeapon();
   viewYaw=0;viewPitch=0;
   hudDirty=true;$('title').hidden=true;$('over').hidden=true;$('hud').hidden=inXR;$('cross').hidden=inXR;
   showBanner('Wave 1');
@@ -579,6 +653,8 @@ function updateHud(){
   if(!hudDirty)return;hudDirty=false;
   const set=(id,v)=>{if(shown[id]!==v){shown[id]=v;$(id).textContent=v}};
   set('score',state.score.toLocaleString('en-US'));set('wave',state.wave);set('mult',state.mult>1?'×'+state.mult+' streak':'');
+  {const W=WEAPONS[state.weapon];set('wpn',W.name);$('wpn').style.color=W.css;$('wpnwrap').style.color=W.css;
+   $('pips').querySelectorAll('i').forEach((p,i)=>p.classList.toggle('on',i<state.weapon))}
   const h=Math.max(0,Math.round(state.hull));set('hullnum',h+'%');$('hullbar').style.width=h+'%';$('hullwrap').classList.toggle('low',h<30);
   if(inXR)drawPanel(state.mode==='over'?overMsg():'');
 }
@@ -689,6 +765,7 @@ renderer.setAnimationLoop(()=>{
       state.spawnT=Math.max(.32,1.25-state.wave*.09)*rnd(.6,1.3);
     }else{spawnIncoming(true);state.spawnT=rnd(1,1.8)}
   }
+  if(state.mode==='play'){state.chestT-=dt;if(state.chestT<=0){spawnChest();state.chestT=rnd(16,28)}}
 
   /* aim (flat screen) */
   if(!inXR){
@@ -708,15 +785,16 @@ renderer.setAnimationLoop(()=>{
     else g.position.set(0,0,-g.recoil*.05);
   }
   if(state.mode==='play'){
-    if(!inXR){fireT-=dt;if(firing&&fireT<=0){shoot(guns[turn]);turn^=1;fireT=.085}}
-    else for(const g of guns)if(g.held&&g.cool<=0){shoot(g);g.cool=.13}
+    const W=WEAPONS[state.weapon];
+    if(!inXR){fireT-=dt;if(firing&&fireT<=0){shoot(guns[turn]);turn^=1;fireT=W.rate}}
+    else for(const g of guns)if(g.held&&g.cool<=0){shoot(g);g.cool=W.vr}
   }
 
   /* bolts */
   for(let i=bolts.length-1;i>=0;i--){
     const b=bolts[i];v2.copy(b.m.position);b.m.position.addScaledVector(b.dir,BOLT_SPEED*dt);b.life-=dt;
     let hit=null;for(const rk of rocks)if(segHits(v2,b.m.position,rk.mesh.position,rk.r*.95+.15)){hit=rk;break}
-    if(hit){damageRock(hit,b.m.position);scene.remove(b.m);bolts.splice(i,1)}
+    if(hit){damageRock(hit,b.m.position,b.dmg);scene.remove(b.m);bolts.splice(i,1)}
     else if(b.life<=0){scene.remove(b.m);bolts.splice(i,1)}
   }
 
@@ -725,11 +803,12 @@ renderer.setAnimationLoop(()=>{
     const rk=rocks[i],m=rk.mesh;
     m.position.addScaledVector(rk.vel,dt);m.rotation.x+=rk.spin.x*dt;m.rotation.y+=rk.spin.y*dt;m.rotation.z+=rk.spin.z*dt;
     if(rk.pulse>0){rk.pulse=Math.max(0,rk.pulse-dt*6);m.scale.setScalar(rk.r*(1+rk.pulse*.12))}
+    if(rk.halo)rk.halo.material.opacity=.45+.35*Math.sin(t*7);
     if(state.mode==='play'&&m.position.distanceTo(EYE)<rk.r+.9){
-      if(rk.kind==='crystal'){destroyRock(rk)}else hitPlayer(rk);continue;
+      if(rk.kind==='crystal'||rk.kind==='chest'){destroyRock(rk)}else hitPlayer(rk);continue;
     }
     let crash=false;
-    for(const s of structures){const p=m.position;
+    if(rk.kind!=='chest')for(const s of structures){const p=m.position;
       const dx=Math.max(s.min.x-p.x,0,p.x-s.max.x),dy=Math.max(s.min.y-p.y,0,p.y-s.max.y),dz=Math.max(s.min.z-p.z,0,p.z-s.max.z);
       if(dx*dx+dy*dy+dz*dz<rk.r*rk.r*.6){crash=true;break}}
     if(crash){removeRock(rk);explode(rk);continue}
