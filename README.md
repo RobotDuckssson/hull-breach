@@ -20,6 +20,7 @@ Open `index.html` in a browser, or upload it to any web host. No build step. The
 
 - Big rocks take 4 hits and split into shards.
 - Shoot the cyan crystals to repair your hull.
+- Shoot the glowing green supply crates to upgrade your cannons: Standard → Rapid → Spread → Nova. Any hit drops you back to Standard.
 - Quick kills in a row build a score multiplier up to ×5.
 - Each wave brings faster, more frequent rocks.
 - Your best score is saved in your own browser.
