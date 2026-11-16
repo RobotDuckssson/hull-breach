@@ -1,0 +1,45 @@
+# Deploys this game to its own folder on anderssons.info (one.com) over SFTP.
+# Runs on every push to main, or by hand from the Actions tab.
+#
+# Needs one repository secret (Settings > Secrets and variables > Actions):
+#   SFTP_PASSWORD  the SFTP password set in the one.com Control Panel
+
+name: Deploy to anderssons.info
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  # The game is served from https://anderssons.info/<DEPLOY_DIR>/
+  DEPLOY_DIR: hull-breach
+  SFTP_HOST: ssh.anderssons.info
+  SFTP_USER: anderssons.info
+  SFTP_PORT: 22
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Upload to one.com
+        env:
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+        run: |
+          # Mirror the repo into httpd.www/<DEPLOY_DIR>. --delete only removes
+          # files inside that folder, never anything else on the site.
+          lftp -u "$SFTP_USER","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" -e "
+            set sftp:auto-confirm yes;
+            set net:max-retries 2;
+            mkdir -p -f httpd.www/$DEPLOY_DIR;
+            mirror --reverse --delete --verbose --exclude '^\.git' --exclude '^README\.md$' ./ httpd.www/$DEPLOY_DIR;
+            bye"

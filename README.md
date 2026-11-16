@@ -27,3 +27,7 @@ Open `index.html` in a browser, or upload it to any web host. No build step. The
 ## VR
 
 VR uses WebXR and only works when the page is served over **https**. Open it in the headset's browser (for example on Meta Quest) and press **Enter VR**.
+
+## Deploy
+
+Every push to `main` uploads the game to <https://anderssons.info/hull-breach/> through the workflow in `.github/workflows/deploy.yml`. It connects to `ssh.anderssons.info` as `anderssons.info` and needs one repository secret, `SFTP_PASSWORD`, set in the one.com Control Panel.
