@@ -35,11 +35,11 @@ jobs:
         env:
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
         run: |
-          # Mirror the repo into httpd.www/<DEPLOY_DIR>. --delete only removes
-          # files inside that folder, never anything else on the site.
+          # The SFTP login lands in the web root, so <DEPLOY_DIR> is relative to it.
+          # --delete only removes files inside that folder, never anything else.
           lftp -u "$SFTP_USER","$SFTP_PASSWORD" "sftp://$SFTP_HOST:$SFTP_PORT" -e "
             set sftp:auto-confirm yes;
             set net:max-retries 2;
-            mkdir -p -f httpd.www/$DEPLOY_DIR;
-            mirror --reverse --delete --verbose --exclude '^\.git' --exclude '^README\.md$' ./ httpd.www/$DEPLOY_DIR;
+            mkdir -p -f $DEPLOY_DIR;
+            mirror --reverse --delete --verbose --exclude '^\.git' --exclude '^README\.md$' ./ $DEPLOY_DIR;
             bye"
